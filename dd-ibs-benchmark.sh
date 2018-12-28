@@ -20,7 +20,7 @@ if [[ -e $temporary_file ]]; then
   exit 1
 fi
 
-echo "Please wait while the temporary file is being written."
+echo "Please wait while the file $temporary_file is being written."
 bs=65536
 count=$((temporary_file_size / bs))
 dd bs=$bs conv=fsync count=$count if=/dev/urandom of="$temporary_file" &> /dev/null
@@ -29,6 +29,7 @@ echo "block  |  read"
 echo " size  |  speed"
 
 for bs in $block_sizes; do
+
   sync && [[ $EUID -eq 0 ]] && [[ -e /proc/sys/vm/drop_caches ]] && sysctl vm.drop_caches=3
 
   dd_output=$(dd bs="$bs" if="$temporary_file" of=/dev/null 2>&1 1>/dev/null)

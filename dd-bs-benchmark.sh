@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 
 
-# Enable some bash options
+#----------------------------------------------------------------------
+#  Enable some bash options
+#----------------------------------------------------------------------
 set -e    # aka errexit, this option ensures the shell will exit on error
 set -u    # aka nounset, this option treats unbound variables or parameters as an error
 #set -x    # aka xtrace, this option displays the commands and the expanded values
 
-# Check for flags
+#----------------------------------------------------------------------
+#  Parse the command line arguments with getopts
+#----------------------------------------------------------------------
 while getopts ":rw" opt; do
   case "$opt" in
     r)
@@ -25,21 +29,27 @@ while getopts ":rw" opt; do
   esac
 done
 
-# Stop the script if no valid flags were used
+#----------------------------------------------------------------------
+#  Stop the script if no valid flags were used
+#----------------------------------------------------------------------
 if [[ ! ${r_flag:-} && ! ${w_flag:-} ]]; then
   echo "Please choose one of the 2 options: -r (read) or -w (write)."
   echo "Usage: ${0##*/} -r|-w DIRECTORY [NUMBER]"
   exit 1
 fi
 
-# Stop the script if both flags were used
+#----------------------------------------------------------------------
+#  Stop the script if both flags were used
+#----------------------------------------------------------------------
 if [[ ${r_flag:-} && ${w_flag:-} ]]; then
   echo "The -r and -w flags are mutually exclusive" >&2
   echo "You can either run the script in read mode or in write mode." >&2
   exit 1
 fi
 
-# Create some variables
+#----------------------------------------------------------------------
+#  Create some variables
+#----------------------------------------------------------------------
 if [[ "${2:-}" ]]; then
   path="${2}"
 else
@@ -49,34 +59,44 @@ else
 fi
 temporary_file="$path/dd-ibs-benchmark.tmp"
 if [[ "${3:-}" ]]; then temporary_file_size="${3}"; else temporary_file_size=268435456; fi
-# Test with block sizes from 512 bytes to 64 MiB
+# Benchmark with block sizes from 512 bytes to 64 MiB
 block_sizes="512 1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216 33554432 67108864"
 
-# Check if the script is run as root
+#----------------------------------------------------------------------
+#  Check if the script is run as root
+#----------------------------------------------------------------------
 if [[ $EUID -ne 0 ]]; then
   echo "NOTE: The kernel cache cannot be cleared without root privileges." >&2
   echo "To avoid inaccurate results please run this script as root." >&2
 fi
 
-# Check if the directory is valid
+#----------------------------------------------------------------------
+#  Check if the directory is valid
+#----------------------------------------------------------------------
 if [[ ! -d $path || ! -w $path ]]; then
   echo "$path is not a directory or is not writable, please provide another path."
   exit 1
 fi
 
-# Abort the test if the file exists
+#----------------------------------------------------------------------
+#  Abort the benchmark if the file exists
+#----------------------------------------------------------------------
 if [[ -e $temporary_file ]]; then
   echo "The file $temporary_file exists, please provide another file path."
   exit 1
 fi
 
-# Check if the provided number is valid
+#----------------------------------------------------------------------
+#  Check if the provided number is valid
+#----------------------------------------------------------------------
 case "$temporary_file_size" in
   (*[!0-9]*|'') echo "Please specify a file size that is a natural number/positive integer!";;
   (*)           echo "The file will be $temporary_file_size bytes large.";;
 esac
 
-# Use a code block where to create the file
+#----------------------------------------------------------------------
+#  Use a code block where to create the file
+#----------------------------------------------------------------------
 {
 
   if [[ ${r_flag:-} ]]; then
@@ -97,7 +117,9 @@ esac
     echo " size  |  speed"
   fi
 
-  # Run tests for each block size
+  #--------------------------------------------------------------------
+  #  Run benchmarks for each block size
+  #--------------------------------------------------------------------
   for bs in $block_sizes; do
 
     if [[ ${w_flag:-} ]]; then
@@ -115,7 +137,7 @@ esac
       # Determine the read speed from dd's output and place it in a variable
       read_speed=$(grep --only-matching --extended-regexp --ignore-case '[0-9.]+ ([GMk]?B|bytes)/s(ec)?' <<< "$dd_output")
 
-      # Print the current test's read speed
+      # Print the current benchmark's read speed
       echo "  $bs  -  $read_speed"
     fi
 
@@ -126,7 +148,7 @@ esac
       # Determine the write speed from dd's output and place it in a variable
       write_speed=$(grep --only-matching --extended-regexp --ignore-case '[0-9.]+ ([GMk]?B|bytes)/s(ec)?' <<< "$dd_output")
 
-      # Print the current test's write speed
+      # Print the current benchmark's write speed
       echo "  $bs  -  $write_speed"
 
       # Remove the temporary file

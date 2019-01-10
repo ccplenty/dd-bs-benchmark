@@ -61,6 +61,12 @@ temporary_file="$path/dd-ibs-benchmark.tmp"
 if [[ "${3:-}" ]]; then temporary_file_size="${3}"; else temporary_file_size=268435456; fi
 # Benchmark with block sizes from 512 bytes to 64 MiB
 block_sizes="512 1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216 33554432 67108864"
+if [[ ${r_flag:-} ]]; then
+  printf_format="%10s - %10s\n"
+fi
+if [[ ${w_flag:-} ]]; then
+  printf_format="%10s - %11s\n"
+fi
 
 #----------------------------------------------------------------------
 #  Check if the script is run as root
@@ -107,14 +113,14 @@ esac
     dd bs=$bs conv=fsync count=$count if=/dev/urandom of="$temporary_file" &> /dev/null
 
     # Print a header for the list with the read speeds
-    echo "block  |  read"
-    echo " size  |  speed"
+    # shellcheck disable=SC2059
+    printf "$printf_format" 'block size' 'read speed'
   fi
 
   if [[ ${w_flag:-} ]]; then
     # Print a header for the list with the write speeds
-    echo "block  |  write"
-    echo " size  |  speed"
+    # shellcheck disable=SC2059
+    printf "$printf_format" 'block size' 'write speed'
   fi
 
   #--------------------------------------------------------------------
@@ -138,7 +144,8 @@ esac
       read_speed=$(grep --only-matching --extended-regexp --ignore-case '[0-9.]+ ([GMk]?B|bytes)/s(ec)?' <<< "$dd_output")
 
       # Print the current benchmark's read speed
-      echo "  $bs  -  $read_speed"
+      # shellcheck disable=SC2059
+      printf "$printf_format" "$bs" "$read_speed"
     fi
 
     if [[ ${w_flag:-} ]]; then
@@ -149,7 +156,8 @@ esac
       write_speed=$(grep --only-matching --extended-regexp --ignore-case '[0-9.]+ ([GMk]?B|bytes)/s(ec)?' <<< "$dd_output")
 
       # Print the current benchmark's write speed
-      echo "  $bs  -  $write_speed"
+      # shellcheck disable=SC2059
+      printf "$printf_format" "$bs" "$write_speed"
 
       # Remove the temporary file
       rm "$temporary_file"

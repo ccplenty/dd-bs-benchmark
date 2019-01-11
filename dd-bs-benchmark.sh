@@ -8,11 +8,55 @@ set -e    # aka errexit, this option ensures the shell will exit on error
 set -u    # aka nounset, this option treats unbound variables or parameters as an error
 #set -x    # aka xtrace, this option displays the commands and the expanded values
 
+#===  FUNCTION  ================================================================
+#         NAME:  show_help
+#  DESCRIPTION:  Display usage information for this script
+# PARAMETER  1:  ---
+#===============================================================================
+show_help () {
+cat << EOF
+
+Benchmark the device where DIRECTORY resides on using dd.
+
+Usage: ${0##*/} -h
+Usage: ${0##*/} -r|-w DIRECTORY [NUMBER]
+
+Options:
+    -h                              display this help and exit
+    -r                              run the script in read mode
+    -w                              run the script in write mode
+    DIRECTORY                       a path to a directory
+    NUMBER                          the number of bytes for the temporary file
+                                    that is to be created
+
+Examples:
+${0##*/} -h
+    Show this usage message.
+${0##*/} -r /media/user/External_storage 536870912
+    The command above will create a 512 MiB file with "dd" in the directory
+    /media/user/External_storage then read it back repeatedly with "dd" using
+    different block sizes and print the read speeds obtained. If no size were
+    specified, the script would create a file of the default size which is 256 MiB.
+${0##*/} -w /media/user/External_storage 134217728
+    The command above will create a 128 MiB file with "dd" using a block size
+    of 512 bytes in the directory /media/user/External_storage and print the
+    write speed obtained then delete the file. It would then create another file
+    using a block size of 1024 bytes, then one with 2 kiB and so on. If no size
+    were specified, the script would create 256 MiB files.
+
+EOF
+} >&2    # create a function to show an usage message and redirect it to STDERR
+
 #----------------------------------------------------------------------
 #  Parse the command line arguments with getopts
 #----------------------------------------------------------------------
-while getopts ":rw" opt; do
+while getopts ":hrw" opt; do
   case "$opt" in
+    h)
+      echo "-h flag was triggered"
+      show_help
+      exit 0
+    ;;
     r)
       echo "-r flag was triggered"
       r_flag=1
@@ -23,7 +67,8 @@ while getopts ":rw" opt; do
     ;;
     ?)
       echo "Invalid option: -${OPTARG:-}" >&2
-      echo "Usage: ${0##*/} -r|-w DIRECTORY [NUMBER]"
+      #echo "Usage: ${0##*/} -r|-w DIRECTORY [NUMBER]"
+      show_help
       exit 1
     ;;
   esac
@@ -34,7 +79,8 @@ done
 #----------------------------------------------------------------------
 if [[ ! ${r_flag:-} && ! ${w_flag:-} ]]; then
   echo "Please choose one of the 2 options: -r (read) or -w (write)."
-  echo "Usage: ${0##*/} -r|-w DIRECTORY [NUMBER]"
+  #echo "Usage: ${0##*/} -r|-w DIRECTORY [NUMBER]"
+  show_help
   exit 1
 fi
 
@@ -44,6 +90,7 @@ fi
 if [[ ${r_flag:-} && ${w_flag:-} ]]; then
   echo "The -r and -w flags are mutually exclusive" >&2
   echo "You can either run the script in read mode or in write mode." >&2
+  show_help
   exit 1
 fi
 
@@ -54,7 +101,8 @@ if [[ "${2:-}" ]]; then
   path="${2}"
 else
   echo "Please provide a directory path!"
-  echo "Usage: ${0##*/} -r|-w DIRECTORY [NUMBER]"
+  #echo "Usage: ${0##*/} -r|-w DIRECTORY [NUMBER]"
+  show_help
   exit 1
 fi
 temporary_file="$path/dd-ibs-benchmark.tmp"

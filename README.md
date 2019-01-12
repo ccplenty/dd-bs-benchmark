@@ -3,7 +3,12 @@
 This is a project aiming to find the average read and write transfer speeds a device is able to achieve by running `dd` with various block sizes. Currently, block sizes from 512 bytes to 64 MiB are used (512, 1024, 2048, ... 65536, ... 67108864). That's 18 tests. It will help you find the optimal input and output block sizes to use with the respective device to achieve high transfer speeds.
 
 ### How to use
-The script accepts a flag, a folder path and a number.
+For more detailed info on how to use the script, run:
+```
+./dd-bs-benchmark.sh -h
+```
+
+The script needs a flag, a folder path and optionally, a number.
 ```
 ./dd-bs-benchmark.sh -r /path/to/directory [number]
 ./dd-bs-benchmark.sh -w /path/to/directory [number]

@@ -67,8 +67,6 @@ while getopts ":hrw" opt; do
     ;;
     ?)
       echo "Invalid option: -${OPTARG:-}" >&2
-      #echo "Usage: ${0##*/} -r|-w DIRECTORY [NUMBER]"
-      show_help
       exit 1
     ;;
   esac
@@ -79,8 +77,6 @@ done
 #----------------------------------------------------------------------
 if [[ ! ${r_flag:-} && ! ${w_flag:-} ]]; then
   echo "Please choose one of the 2 options: -r (read) or -w (write)."
-  #echo "Usage: ${0##*/} -r|-w DIRECTORY [NUMBER]"
-  show_help
   exit 1
 fi
 
@@ -90,7 +86,6 @@ fi
 if [[ ${r_flag:-} && ${w_flag:-} ]]; then
   echo "The -r and -w flags are mutually exclusive" >&2
   echo "You can either run the script in read mode or in write mode." >&2
-  show_help
   exit 1
 fi
 
@@ -101,8 +96,6 @@ if [[ "${2:-}" ]]; then
   path="${2}"
 else
   echo "Please provide a directory path!"
-  #echo "Usage: ${0##*/} -r|-w DIRECTORY [NUMBER]"
-  show_help
   exit 1
 fi
 temporary_file="$path/dd-ibs-benchmark.tmp"

@@ -95,7 +95,7 @@ fi
 if [[ "${2:-}" ]]; then
   path="${2}"
 else
-  echo "Please provide a directory path!"
+  echo "Please provide a directory path."
   exit 1
 fi
 temporary_file="$path/dd-ibs-benchmark.tmp"
@@ -137,7 +137,7 @@ fi
 #  Check if the provided number is valid
 #----------------------------------------------------------------------
 case "$temporary_file_size" in
-  (*[!0-9]*|'') echo "Please specify a file size that is a natural number/positive integer!";;
+  (*[!0-9]*|'') echo "Please specify a file size that is a natural number/positive integer.";;
   (*)           echo "The file will be $temporary_file_size bytes large.";;
 esac
 

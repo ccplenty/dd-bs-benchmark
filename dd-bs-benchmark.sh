@@ -8,6 +8,23 @@ set -e    # aka errexit, this option ensures the shell will exit on error
 set -u    # aka nounset, this option treats unbound variables or parameters as an error
 #set -x    # aka xtrace, this option displays the commands and the expanded values
 
+#----------------------------------------------------------------------
+#  Define some exit codes
+#  (see /usr/include/sysexits.h)
+#----------------------------------------------------------------------
+EX_OK=0            # Successful termination
+EX_USAGE=64        # The command was used incorrectly, e.g., with the wrong
+                   #+ number of arguments, a bad flag, a bad syntax in a
+                   #+ parameter, or whatever.
+#EX_NOINPUT=66      # An input file (not a system file) did not exist or was
+#                   #+ not readable. This could also include errors like "No
+#                   #+ message" to a mailer (if it cared to catch it).
+#EX_UNAVAILABLE=69  # A service is unavailable. This can occur if a support
+#                   #+ program or file does not exist. This can also be used
+#                   #+ as a catchall message when something you wanted to do
+#                   #+ doesn't work, but you don't know why.
+#EX_CANTCREAT=73    # A (user specified) output file cannot be created.
+
 #===  FUNCTION  ================================================================
 #         NAME:  show_help
 #  DESCRIPTION:  Display usage information for this script
@@ -55,7 +72,7 @@ while getopts ":hrw" opt; do
     h)
       echo "-h flag was triggered"
       show_help
-      exit 0
+      exit $EX_OK
     ;;
     r)
       echo "-r flag was triggered"
@@ -67,7 +84,7 @@ while getopts ":hrw" opt; do
     ;;
     ?)
       echo "Invalid option: -${OPTARG:-}" >&2
-      exit 1
+      exit $EX_USAGE
     ;;
   esac
 done
@@ -77,7 +94,7 @@ done
 #----------------------------------------------------------------------
 if [[ ! ${r_flag:-} && ! ${w_flag:-} ]]; then
   echo "Please choose one of the 2 options: -r (read) or -w (write)."
-  exit 1
+  exit $EX_USAGE
 fi
 
 #----------------------------------------------------------------------
@@ -86,7 +103,7 @@ fi
 if [[ ${r_flag:-} && ${w_flag:-} ]]; then
   echo "The -r and -w flags are mutually exclusive" >&2
   echo "You can either run the script in read mode or in write mode." >&2
-  exit 1
+  exit $EX_USAGE
 fi
 
 #----------------------------------------------------------------------
@@ -96,7 +113,7 @@ if [[ "${2:-}" ]]; then
   path="${2}"
 else
   echo "Please provide a directory path."
-  exit 1
+  exit $EX_USAGE
 fi
 temporary_file="$path/dd-ibs-benchmark.tmp"
 if [[ "${3:-}" ]]; then temporary_file_size="${3}"; else temporary_file_size=268435456; fi
@@ -122,7 +139,7 @@ fi
 #----------------------------------------------------------------------
 if [[ ! -d $path || ! -w $path ]]; then
   echo "$path is not a directory or is not writable, please provide another path."
-  exit 1
+  exit $EX_USAGE
 fi
 
 #----------------------------------------------------------------------
@@ -130,7 +147,7 @@ fi
 #----------------------------------------------------------------------
 if [[ -e $temporary_file ]]; then
   echo "The file $temporary_file exists, please provide another file path."
-  exit 1
+  exit $EX_USAGE
 fi
 
 #----------------------------------------------------------------------

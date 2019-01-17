@@ -44,22 +44,24 @@ Options:
     -w                              run the script in write mode
     DIRECTORY                       a path to a directory
     NUMBER                          the number of bytes for the temporary file
-                                    that is to be created
+                                    that is to be created. Default: 268435456
 
 Examples:
 ${0##*/} -h
     Show this usage message.
 ${0##*/} -r /media/user/External_storage 536870912
-    The command above will create a 512 MiB file with "dd" in the directory
-    /media/user/External_storage then read it back repeatedly with "dd" using
-    different block sizes and print the read speeds obtained. If no size were
-    specified, the script would create a file of the default size which is 256 MiB.
-${0##*/} -w /media/user/External_storage 134217728
-    The command above will create a 128 MiB file with "dd" using a block size
+    The command above will create a 512 MiB file with pseudo-random data in the
+    directory /media/user/External_storage then read it back repeatedly with
+    "dd" using different block sizes and print the read speeds obtained. If no
+    size were specified, the script would create a file of the default size
+    which is 256 MiB.
+${0##*/} -w /media/user/External_storage
+    The command above will create a zeroed-out file with "dd" using a block size
     of 512 bytes in the directory /media/user/External_storage and print the
     write speed obtained then delete the file. It would then create another file
-    using a block size of 1024 bytes, then one with 2 kiB and so on. If no size
-    were specified, the script would create 256 MiB files.
+    using a block size of 1024 bytes, then one with 2 kiB and so on. Because
+    no size was specified, the script will create a file of the default size
+    which is 256 MiB.
 
 EOF
 } >&2    # create a function to show an usage message and redirect it to STDERR

@@ -118,7 +118,24 @@ else
   exit $EX_USAGE
 fi
 temporary_file="$path/dd-ibs-benchmark.tmp"
-if [[ "${3:-}" ]]; then temporary_file_size="${3}"; else temporary_file_size=268435456; fi
+if [[ "${3:-}" ]]; then
+  echo "The file size was specified: ${2}"
+  temporary_file_size="${3}"
+  # Check if the provided number is valid
+  case "$temporary_file_size" in
+    (*[!0-9]*|'')
+      echo "Please specify a file size that is a natural number/positive integer."
+      exit $EX_USAGE
+    ;;
+    (*)
+      echo "The file will be $temporary_file_size bytes large."
+    ;;
+  esac
+else
+  echo "The file size was not specified."
+  echo "The default file size of 256 MiB will be used."
+  temporary_file_size=268435456
+fi
 # Benchmark with block sizes from 512 bytes to 64 MiB
 block_sizes="512 1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216 33554432 67108864"
 if [[ ${r_flag:-} ]]; then
@@ -158,14 +175,6 @@ if [[ -e $temporary_file ]]; then
   echo "The file $temporary_file exists, please provide another file path."
   exit $EX_USAGE
 fi
-
-#----------------------------------------------------------------------
-#  Check if the provided number is valid
-#----------------------------------------------------------------------
-case "$temporary_file_size" in
-  (*[!0-9]*|'') echo "Please specify a file size that is a natural number/positive integer.";;
-  (*)           echo "The file will be $temporary_file_size bytes large.";;
-esac
 
 #----------------------------------------------------------------------
 #  Use a code block where to create the file

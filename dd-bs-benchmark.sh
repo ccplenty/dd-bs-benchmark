@@ -35,19 +35,19 @@ cat << EOF
 
 Benchmark the device where DIRECTORY resides on using dd.
 
-Usage: ${0##*/} -h
-Usage: ${0##*/} -r|-w DIRECTORY [NUMBER]
+Usage: ${0##*/} -h | --help
+Usage: ${0##*/} {{-r | --read} | {-w | --write}} DIRECTORY [NUMBER]
 
 Options:
-    -h                              display this help and exit
-    -r                              run the script in read mode
-    -w                              run the script in write mode
+    -h, --help                      display this help and exit
+    -r, --read                      run the script in read mode
+    -w, --write                     run the script in write mode
     DIRECTORY                       a path to a directory
     NUMBER                          the number of bytes for the temporary file
                                     that is to be created. Default: 268435456
 
 Examples:
-${0##*/} -h
+${0##*/} --help
     Show this usage message.
 ${0##*/} -r /media/user/External_storage 536870912
     The command above will create a 512 MiB file with pseudo-random data in the
@@ -67,35 +67,63 @@ EOF
 } >&2    # create a function to show an usage message and redirect it to STDERR
 
 #----------------------------------------------------------------------
-#  Parse the command line arguments with getopts
+#  Parse the command line arguments using getopts
 #----------------------------------------------------------------------
-while getopts ":hrw" opt; do
-  case "$opt" in
-    h)
-      echo "-h flag was triggered"
-      show_help
-      exit $EX_OK
-    ;;
-    r)
-      echo "-r flag was triggered"
-      r_flag=1
-    ;;
-    w)
-      echo "-w flag was triggered"
-      w_flag=1
-    ;;
-    ?)
-      echo "Invalid option: -${OPTARG:-}" >&2
-      exit $EX_USAGE
-    ;;
-  esac
+while getopts ":hrw-:" opt; do
+  while true; do
+    case "${opt}" in
+      -)    #OPTARG is name-of-long-option or name-of-long-option=value
+        if [[ ${OPTARG} =~ .*=.* ]]; then
+          opt=${OPTARG/=*/}
+          ((${#opt} <= 1)) && {
+            echo "Syntax error: Invalid long option '$opt'" >&2
+            #exit 2
+            exit $EX_USAGE
+          }
+          OPTARG=${OPTARG#*=}
+        else
+          opt="$OPTARG"
+          ((${#opt} <= 1)) && {
+            echo "Syntax error: Invalid long option '$opt'" >&2
+            #exit 2
+            exit $EX_USAGE
+          }
+        fi
+        continue    # now that opt/OPTARG are set we can process them as if
+                    #+ getopts would've given us long options
+        ;;
+      h|help)
+        echo "The -h/--help flag was used"
+        show_help
+        exit $EX_OK
+        ;;
+      r|read)
+        echo "The -r/--read flag was used"
+        r_flag=1
+      ;;
+      w|write)
+        echo "The -w/--write flag was used"
+        w_flag=1
+      ;;
+      ?)
+        echo "Syntax error: Unknown short option -${OPTARG:-}" >&2
+        #exit 2
+        exit $EX_USAGE
+        ;;
+      *)
+        echo "Syntax error: Unknown long option --${opt[0]}" >&2
+        #exit 2
+        exit $EX_USAGE
+        ;;
+    esac
+  break; done
 done
 
 #----------------------------------------------------------------------
 #  Stop the script if no valid flags were used
 #----------------------------------------------------------------------
 if [[ ! ${r_flag:-} && ! ${w_flag:-} ]]; then
-  echo "Please choose one of the 2 options: -r (read) or -w (write)."
+  echo "Please choose one of the 2 options: -r/--read or -w/--write)."
   exit $EX_USAGE
 fi
 
@@ -103,7 +131,7 @@ fi
 #  Stop the script if both flags were used
 #----------------------------------------------------------------------
 if [[ ${r_flag:-} && ${w_flag:-} ]]; then
-  echo "The -r and -w flags are mutually exclusive" >&2
+  echo "The -r/--read and -w/--write flags are mutually exclusive" >&2
   echo "You can either run the script in read mode or in write mode." >&2
   exit $EX_USAGE
 fi
@@ -160,11 +188,11 @@ if [[ -d "$path" ]]; then
   if [[ -w "$path" ]]; then
     echo "The directory $path is valid"
   else
-    echo "The directory $path is not writable!"
+    echo "The directory $path is not writable."
     exit $EX_CANTCREAT
   fi
 else
-  echo "The path $path is not of a directory, please provide a valid one!"
+  echo "The path $path is not of a directory, please provide a valid one."
   exit $EX_NOINPUT
 fi
 

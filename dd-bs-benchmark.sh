@@ -137,33 +137,45 @@ if [[ ${r_flag:-} && ${w_flag:-} ]]; then
 fi
 
 #----------------------------------------------------------------------
-#  Create some variables
+#  Extract the directory path and the file size
 #----------------------------------------------------------------------
-if [[ "${2:-}" ]]; then
-  path="${2}"
+#echo "First non-option-argument (if exists): ${!OPTIND-}"
+if [[ "${!OPTIND-}" ]]; then    # check if there are any non-option arguments
+  shift "$((OPTIND-1))"    # remove all the options that were parsed by getopts
+#  echo "\"\$#\":$#"    # show the number of arguments
+#  echo "\"\$0\":$0"    # show the script path
+#  echo "\"\$1\":$1"    # show the first argument
+#  echo "\"\$2\":$2"    # show the second argument
+#  echo "\"\$3\":$3"    # show the third argument
+  echo "The directory path was specified: ${1}"
+  path="${1}"
+  temporary_file="$path/dd-bs-benchmark.tmp"
+  if [[ "${2:-}" ]]; then
+    echo "The file size was specified: ${2}"
+    temporary_file_size="${2}"
+    # Check if the provided number is valid
+    case "$temporary_file_size" in
+      (*[!0-9]*|'')
+        echo "Please specify a file size that is a natural number/positive integer."
+        exit $EX_USAGE
+      ;;
+      (*)
+        echo "The file will be $temporary_file_size bytes large."
+      ;;
+    esac
+  else
+    echo "The file size was not specified."
+    echo "The default file size of 256 MiB will be used."
+    temporary_file_size=268435456
+  fi
 else
   echo "Please provide a directory path."
   exit $EX_USAGE
 fi
-temporary_file="$path/dd-ibs-benchmark.tmp"
-if [[ "${3:-}" ]]; then
-  echo "The file size was specified: ${2}"
-  temporary_file_size="${3}"
-  # Check if the provided number is valid
-  case "$temporary_file_size" in
-    (*[!0-9]*|'')
-      echo "Please specify a file size that is a natural number/positive integer."
-      exit $EX_USAGE
-    ;;
-    (*)
-      echo "The file will be $temporary_file_size bytes large."
-    ;;
-  esac
-else
-  echo "The file size was not specified."
-  echo "The default file size of 256 MiB will be used."
-  temporary_file_size=268435456
-fi
+
+#----------------------------------------------------------------------
+#  Create some variables
+#----------------------------------------------------------------------
 # Benchmark with block sizes from 512 bytes to 64 MiB
 block_sizes="512 1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216 33554432 67108864"
 if [[ ${r_flag:-} ]]; then

@@ -25,6 +25,20 @@ EX_NOINPUT=66      # An input file (not a system file) did not exist or was
 #                   #+ doesn't work, but you don't know why.
 EX_CANTCREAT=73    # A (user specified) output file cannot be created.
 
+#----------------------------------------------------------------------
+#  Create some variables
+#----------------------------------------------------------------------
+# Benchmark with block sizes from 512 bytes to 64 MiB
+block_sizes="512 1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216 33554432 67108864"
+
+#----------------------------------------------------------------------
+#  Check if the script is run as root
+#----------------------------------------------------------------------
+if [[ $EUID -ne 0 ]]; then
+  echo "NOTE: The kernel cache cannot be cleared without root privileges." >&2
+  echo "To avoid inaccurate results please run this script as root." >&2
+fi
+
 #===  FUNCTION  ================================================================
 #         NAME:  show_help
 #  DESCRIPTION:  Display usage information for this script
@@ -100,10 +114,12 @@ while getopts ":hrw-:" opt; do
       r|read)
         echo "The -r/--read flag was used"
         r_flag=1
+        printf_format="%10s - %10s\n"
       ;;
       w|write)
         echo "The -w/--write flag was used"
         w_flag=1
+        printf_format="%10s - %11s\n"
       ;;
       ?)
         echo "Syntax error: Unknown short option -${OPTARG:-}" >&2
@@ -171,26 +187,6 @@ if [[ "${!OPTIND-}" ]]; then    # check if there are any non-option arguments
 else
   echo "Please provide a directory path."
   exit $EX_USAGE
-fi
-
-#----------------------------------------------------------------------
-#  Create some variables
-#----------------------------------------------------------------------
-# Benchmark with block sizes from 512 bytes to 64 MiB
-block_sizes="512 1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216 33554432 67108864"
-if [[ ${r_flag:-} ]]; then
-  printf_format="%10s - %10s\n"
-fi
-if [[ ${w_flag:-} ]]; then
-  printf_format="%10s - %11s\n"
-fi
-
-#----------------------------------------------------------------------
-#  Check if the script is run as root
-#----------------------------------------------------------------------
-if [[ $EUID -ne 0 ]]; then
-  echo "NOTE: The kernel cache cannot be cleared without root privileges." >&2
-  echo "To avoid inaccurate results please run this script as root." >&2
 fi
 
 #----------------------------------------------------------------------

@@ -165,7 +165,28 @@ if [[ "${!OPTIND-}" ]]; then    # check if there are any non-option arguments
 #  echo "\"\$3\":$3"    # show the third argument
   echo "The directory path was specified: ${1}"
   path="${1}"
+
+  # Check if the directory is valid
+  if [[ -d "$path" ]]; then
+    if [[ -w "$path" ]]; then
+      echo "The directory $path is valid"
+    else
+      echo "The directory $path is not writable."
+      exit $EX_CANTCREAT
+    fi
+  else
+    echo "The path $path is not of a directory, please provide a valid one."
+    exit $EX_NOINPUT
+  fi
+
   temporary_file="$path/dd-bs-benchmark.tmp"
+
+  # Abort the benchmark if the file exists
+  if [[ -e $temporary_file ]]; then
+    echo "The file $temporary_file exists, please provide another file path."
+    exit $EX_USAGE
+  fi
+
   if [[ "${2:-}" ]]; then
     echo "The file size was specified: ${2}"
     temporary_file_size="${2}"
@@ -186,29 +207,6 @@ if [[ "${!OPTIND-}" ]]; then    # check if there are any non-option arguments
   fi
 else
   echo "Please provide a directory path."
-  exit $EX_USAGE
-fi
-
-#----------------------------------------------------------------------
-#  Check if the directory is valid
-#----------------------------------------------------------------------
-if [[ -d "$path" ]]; then
-  if [[ -w "$path" ]]; then
-    echo "The directory $path is valid"
-  else
-    echo "The directory $path is not writable."
-    exit $EX_CANTCREAT
-  fi
-else
-  echo "The path $path is not of a directory, please provide a valid one."
-  exit $EX_NOINPUT
-fi
-
-#----------------------------------------------------------------------
-#  Abort the benchmark if the file exists
-#----------------------------------------------------------------------
-if [[ -e $temporary_file ]]; then
-  echo "The file $temporary_file exists, please provide another file path."
   exit $EX_USAGE
 fi
 

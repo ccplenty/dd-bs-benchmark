@@ -80,6 +80,36 @@ ${0##*/} -w /media/user/External_storage
 EOF
 } >&2    # create a function to show an usage message and redirect it to STDERR
 
+#===  FUNCTION  ================================================================
+#         NAME:  validate_directory
+#  DESCRIPTION:  Check if a directory fulfills specific conditions
+# PARAMETER  1:  The path to the directory
+# PARAMETER  2:  The minimum free disk space its parent file system should have
+#===============================================================================
+validate_directory () {
+  local dir_path
+  dir_path="$1"
+  local min_free_space
+  min_free_space="$2"
+  if [[ -d "$dir_path" ]]; then
+    if [[ -w "$dir_path" ]]; then
+      if [[ $(df --output=avail -B 1 "$dir_path" | tail -n 1) -gt "$min_free_space" ]]; then
+        echo "The directory $dir_path is valid"
+      else
+        echo "There is not sufficient free space on the file sistem containing"
+        echo "the directory $dir_path. Please free up some disk space."
+        exit $EX_CANTCREAT
+     fi
+    else
+      echo "The directory $dir_path is not writable."
+      exit $EX_CANTCREAT
+    fi
+  else
+    echo "The path $dir_path is not of a directory, please provide a valid one."
+    exit $EX_NOINPUT
+  fi
+}
+
 #----------------------------------------------------------------------
 #  Parse the command line arguments using getopts
 #----------------------------------------------------------------------
@@ -165,20 +195,6 @@ if [[ "${!OPTIND-}" ]]; then    # check if there are any non-option arguments
 #  echo "\"\$3\":$3"    # show the third argument
   echo "The directory path was specified: ${1}"
   path="${1}"
-
-  # Check if the directory is valid
-  if [[ -d "$path" ]]; then
-    if [[ -w "$path" ]]; then
-      echo "The directory $path is valid"
-    else
-      echo "The directory $path is not writable."
-      exit $EX_CANTCREAT
-    fi
-  else
-    echo "The path $path is not of a directory, please provide a valid one."
-    exit $EX_NOINPUT
-  fi
-
   temporary_file="$path/dd-bs-benchmark.tmp"
 
   # Abort the benchmark if the file exists
@@ -209,6 +225,11 @@ else
   echo "Please provide a directory path."
   exit $EX_USAGE
 fi
+
+#----------------------------------------------------------------------
+#  Check if the directory is valid
+#----------------------------------------------------------------------
+validate_directory "$path" "$temporary_file_size"
 
 #----------------------------------------------------------------------
 #  Use a code block where to create the file

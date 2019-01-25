@@ -50,11 +50,16 @@ cat << EOF
 Benchmark the device where DIRECTORY resides on using dd.
 
 Usage: ${0##*/} -h | --help
-Usage: ${0##*/} {{-r | --read} | {-w | --write}} DIRECTORY [NUMBER]
+Usage: ${0##*/} {{-r | --read} | {-w | --write}}
+                [{-t{""|" "}DIRECTORY} | {--temp{" "|"="}DIRECTORY}]
+                DIRECTORY [NUMBER]
 
 Options:
     -h, --help                      display this help and exit
     -r, --read                      run the script in read mode
+    -t/--temp[" "|=]DIRECTORY]      specify a directory where to place a
+                                    temporary file generated with pseudo-random
+                                    data. Only useful with the -w/--write flag.
     -w, --write                     run the script in write mode
     DIRECTORY                       a path to a directory
     NUMBER                          the number of bytes for the temporary file
@@ -76,6 +81,20 @@ ${0##*/} -w /media/user/External_storage
     using a block size of 1024 bytes, then one with 2 kiB and so on. Because
     no size was specified, the script will create a file of the default size
     which is 256 MiB.
+${0##*/} -w -t /dev/shm /media/user/External_storage 134217728
+    By default, with the -w/--write flag, the script will create a file filled
+    with zeroes by reading /dev/zero. If the -t/--temp flag is used, the script
+    will generate a file with random data from /dev/urandom. Reading from
+    /dev/urandom is a CPU-intensive operation and because, apparently, dd uses
+    only 1 CPU, it would not be possible to benchmark a fast device like an SSD
+    or maybe even a hard drive by reading from /dev/urandom because it could
+    not read from it fast enough. A solution would be to read from /dev/urandom
+    and create a file in a temporary directory on a fast drive then copy the
+    file from the fast drive to the drive that needs to be benchmarked.
+    The command above does what the previous one did but the -t flag will create
+    a file with pseudo-random data in /dev/shm, which is a temporary directory
+    stored in the RAM (hence, very fast) on Linux systems then copy it multiple
+    times with different block sizes to /media/user/External_storage.
 
 EOF
 } >&2    # create a function to show an usage message and redirect it to STDERR
@@ -113,23 +132,55 @@ validate_directory () {
 #----------------------------------------------------------------------
 #  Parse the command line arguments using getopts
 #----------------------------------------------------------------------
-while getopts ":hrw-:" opt; do
+# set defaults
+i=$(($# + 1))    # index of the first non-existing argument
+declare -A longoptspec
+# Use associative array to declare how many arguments a long option expects.
+# In this case we declare that all the options expect/have one argument. Long
+#+ options that aren't listed in this way will have zero arguments by default.
+longoptspec=( [temp]=1 )    # WARNING: bashism
+while getopts ":hrt:w-:" opt; do
   while true; do
     case "${opt}" in
       -)    #OPTARG is name-of-long-option or name-of-long-option=value
-        if [[ ${OPTARG} =~ .*=.* ]]; then
+        if [[ ${OPTARG} =~ .*=.* ]]; then    # with this --key=value format
+                                             #+ only one argument is possible
           opt=${OPTARG/=*/}
           ((${#opt} <= 1)) && {
             echo "Syntax error: Invalid long option '$opt'" >&2
             #exit 2
             exit $EX_USAGE
           }
+          if (($((longoptspec[$opt])) != 1)); then    # the script works with
+                                                      #+ and w/o the $ in $opt
+            echo "Syntax error: Option '$opt' does not support this syntax." >&2
+            #exit 2
+            exit $EX_USAGE
+          fi
           OPTARG=${OPTARG#*=}
-        else
+        else    # with this --key value1 value2 format multiple arguments are
+                #+ possible
           opt="$OPTARG"
           ((${#opt} <= 1)) && {
             echo "Syntax error: Invalid long option '$opt'" >&2
             #exit 2
+            exit $EX_USAGE
+          }
+          # TODO: do something to fix this mess below
+          #OPTARG=(${@:OPTIND:$((longoptspec[$opt]))})    # this confuses Geany
+          #OPTARG=("${@:OPTIND:$((longoptspec[$opt]))}")
+          #OPTARG=("${@:OPTIND:${longoptspec[opt]}}")
+          #OPTARG="${@:OPTIND:$((longoptspec[$opt]))}"
+          OPTARG="${*:OPTIND:$((longoptspec[$opt]))}"    # the script doesn't
+                                                         #+ work without the
+                                                         #+ $ in $opt
+          ((OPTIND+=longoptspec[$opt]))    # the script doesn't work without the
+                                           #+ $ in $opt
+          #echo $OPTIND
+          ((OPTIND > i)) && {
+            echo -n "Syntax error: Not all required arguments for option " >&2
+            echo "'$opt' are given." >&2
+            #exit 3
             exit $EX_USAGE
           }
         fi
@@ -145,6 +196,11 @@ while getopts ":hrw-:" opt; do
         echo "The -r/--read flag was used"
         r_flag=1
         printf_format="%10s - %10s\n"
+      ;;
+      t|temp)
+        echo "The -t/--temp flag was used"
+        t_flag=1
+        temp_dir="$OPTARG"
       ;;
       w|write)
         echo "The -w/--write flag was used"
@@ -227,9 +283,14 @@ else
 fi
 
 #----------------------------------------------------------------------
-#  Check if the directory is valid
+#  Check if the directories are valid
 #----------------------------------------------------------------------
 validate_directory "$path" "$temporary_file_size"
+if [[ ${w_flag:-} ]]; then
+  if [[ ${t_flag:-} ]]; then
+    validate_directory "$temp_dir" "$temporary_file_size"
+  fi
+fi
 
 #----------------------------------------------------------------------
 #  Use a code block where to create the file
@@ -249,6 +310,13 @@ validate_directory "$path" "$temporary_file_size"
   fi
 
   if [[ ${w_flag:-} ]]; then
+    if [[ ${t_flag:-} ]]; then
+      # Generate a temporary file with random data in the temporary directory
+      bs=65536
+      count=$((temporary_file_size / bs))
+      dd bs=$bs conv=fsync count=$count if=/dev/urandom of="$temp_dir/dd-bs-benchmark.tmp" &> /dev/null
+    fi
+
     # Print a header for the list with the write speeds
     # shellcheck disable=SC2059
     printf "$printf_format" 'block size' 'write speed'
@@ -258,11 +326,6 @@ validate_directory "$path" "$temporary_file_size"
   #  Run benchmarks for each block size
   #--------------------------------------------------------------------
   for bs in $block_sizes; do
-
-    if [[ ${w_flag:-} ]]; then
-      # Calculate the number of blocks needed to create the file
-      count=$((temporary_file_size / bs))
-    fi
 
     # Clear the kernel cache to obtain more accurate results
     sync && [[ $EUID -eq 0 ]] && [[ -e /proc/sys/vm/drop_caches ]] && sysctl vm.drop_caches=3
@@ -280,8 +343,15 @@ validate_directory "$path" "$temporary_file_size"
     fi
 
     if [[ ${w_flag:-} ]]; then
-      # Create a temporary file using the $bs block size
-      dd_output=$(dd bs="$bs" conv=fsync count=$count if=/dev/zero of="$temporary_file" 2>&1 1>/dev/null)
+      if [[ ${t_flag:-} ]]; then
+        # Copy the temporary file from the temporary directory
+        dd_output=$(dd bs="$bs" conv=fsync if="$temp_dir/dd-bs-benchmark.tmp" of="$temporary_file" 2>&1 1>/dev/null)
+      else
+        # Calculate the number of blocks needed to create the file
+        count=$((temporary_file_size / bs))
+        # Create a temporary file using the $bs block size
+        dd_output=$(dd bs="$bs" conv=fsync count=$count if=/dev/zero of="$temporary_file" 2>&1 1>/dev/null)
+      fi
 
       # Determine the write speed from dd's output and place it in a variable
       write_speed=$(grep --only-matching --extended-regexp --ignore-case '[0-9.]+ ([GMk]?B|bytes)/s(ec)?' <<< "$dd_output")
@@ -301,7 +371,21 @@ validate_directory "$path" "$temporary_file_size"
     rm "$temporary_file"
   fi
 
+    if [[ ${w_flag:-} ]]; then
+      if [[ ${t_flag:-} ]]; then
+      # Remove the temporary-temporary file
+      rm "$temp_dir/dd-bs-benchmark.tmp"
+    fi
+  fi
+
 } || {    # if any command above fails, a fallback code block is ran
+
+  if [[ ${w_flag:-} ]]; then
+    if [[ ${t_flag:-} ]]; then
+      # Remove the temporary-temporary file
+      rm "$temp_dir/dd-bs-benchmark.tmp"
+    fi
+  fi
 
   # Remove the temporary file
   rm "$temporary_file"

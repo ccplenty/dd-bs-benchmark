@@ -57,9 +57,9 @@ Usage: ${0##*/} {{-r | --read} | {-w | --write}}
 Options:
     -h, --help                      display this help and exit
     -r, --read                      run the script in read mode
-    -t/--temp[" "|=]DIRECTORY]      specify a directory where to place a
+    -t{""|" "}, --temp{" "|"="}DIRECTORY    specify a directory where to place a
                                     temporary file generated with pseudo-random
-                                    data. Only useful with the -w/--write flag.
+                                    data. Only useful with the -w/--write flag
     -w, --write                     run the script in write mode
     DIRECTORY                       a path to a directory
     NUMBER                          the number of bytes for the temporary file
@@ -69,19 +69,19 @@ Examples:
 ${0##*/} --help
     Show this usage message.
 ${0##*/} -r /media/user/External_storage 536870912
-    The command above will create a 512 MiB file with pseudo-random data in the
-    directory /media/user/External_storage then read it back repeatedly with
-    "dd" using different block sizes and print the read speeds obtained. If no
-    size were specified, the script would create a file of the default size
-    which is 256 MiB.
+    The command above will create a 512 MiB file with "dd" containing
+    pseudo-random data in the directory /media/user/External_storage then read
+    it back repeatedly with "dd" using different block sizes and print the read
+    speeds obtained. If no size were specified, the script would create a file
+    of the default size which is 256 MiB.
 ${0##*/} -w /media/user/External_storage
     The command above will create a zeroed-out file with "dd" using a block size
     of 512 bytes in the directory /media/user/External_storage and print the
     write speed obtained then delete the file. It would then create another file
     using a block size of 1024 bytes, then one with 2 kiB and so on. Because
-    no size was specified, the script will create a file of the default size
+    no size was specified, the script will create files of the default size
     which is 256 MiB.
-${0##*/} -w -t /dev/shm /media/user/External_storage 134217728
+${0##*/} -t /dev/shm -w /media/user/External_storage 134217728
     By default, with the -w/--write flag, the script will create a file filled
     with zeroes by reading /dev/zero. If the -t/--temp flag is used, the script
     will generate a file with random data from /dev/urandom. Reading from

@@ -12,18 +12,18 @@ set -u    # aka nounset, this option treats unbound variables or parameters as a
 #  Define some exit codes
 #  (see /usr/include/sysexits.h)
 #----------------------------------------------------------------------
-EX_OK=0            # Successful termination
-EX_USAGE=64        # The command was used incorrectly, e.g., with the wrong
-                   #+ number of arguments, a bad flag, a bad syntax in a
-                   #+ parameter, or whatever.
-EX_NOINPUT=66      # An input file (not a system file) did not exist or was
-                   #+ not readable. This could also include errors like "No
-                   #+ message" to a mailer (if it cared to catch it).
-#EX_UNAVAILABLE=69  # A service is unavailable. This can occur if a support
-#                   #+ program or file does not exist. This can also be used
-#                   #+ as a catchall message when something you wanted to do
-#                   #+ doesn't work, but you don't know why.
-EX_CANTCREAT=73    # A (user specified) output file cannot be created.
+E_OK=0            # Successful termination
+E_USAGE=64        # The command was used incorrectly, e.g., with the wrong
+                  #+ number of arguments, a bad flag, a bad syntax in a
+                  #+ parameter, or whatever.
+E_NOINPUT=66      # An input file (not a system file) did not exist or was
+                  #+ not readable. This could also include errors like "No
+                  #+ message" to a mailer (if it cared to catch it).
+#E_UNAVAILABLE=69  # A service is unavailable. This can occur if a support
+#                  #+ program or file does not exist. This can also be used
+#                  #+ as a catchall message when something you wanted to do
+#                  #+ doesn't work, but you don't know why.
+E_CANTCREAT=73    # A (user specified) output file cannot be created.
 
 #----------------------------------------------------------------------
 #  Create some variables
@@ -117,15 +117,15 @@ validate_directory () {
       else
         echo "There is not sufficient free space on the file sistem containing"
         echo "the directory $dir_path. Please free up some disk space."
-        exit $EX_CANTCREAT
+        exit $E_CANTCREAT
      fi
     else
       echo "The directory $dir_path is not writable."
-      exit $EX_CANTCREAT
+      exit $E_CANTCREAT
     fi
   else
     echo "The path $dir_path is not of a directory, please provide a valid one."
-    exit $EX_NOINPUT
+    exit $E_NOINPUT
   fi
 }
 
@@ -149,13 +149,13 @@ while getopts ":hrt:w-:" opt; do
           ((${#opt} <= 1)) && {
             echo "Syntax error: Invalid long option '$opt'" >&2
             #exit 2
-            exit $EX_USAGE
+            exit $E_USAGE
           }
           if (($((longoptspec[$opt])) != 1)); then    # the script works with
                                                       #+ and w/o the $ in $opt
             echo "Syntax error: Option '$opt' does not support this syntax." >&2
             #exit 2
-            exit $EX_USAGE
+            exit $E_USAGE
           fi
           OPTARG=${OPTARG#*=}
         else    # with this --key value1 value2 format multiple arguments are
@@ -164,7 +164,7 @@ while getopts ":hrt:w-:" opt; do
           ((${#opt} <= 1)) && {
             echo "Syntax error: Invalid long option '$opt'" >&2
             #exit 2
-            exit $EX_USAGE
+            exit $E_USAGE
           }
           # TODO: do something to fix this mess below
           #OPTARG=(${@:OPTIND:$((longoptspec[$opt]))})    # this confuses Geany
@@ -181,7 +181,7 @@ while getopts ":hrt:w-:" opt; do
             echo -n "Syntax error: Not all required arguments for option " >&2
             echo "'$opt' are given." >&2
             #exit 3
-            exit $EX_USAGE
+            exit $E_USAGE
           }
         fi
         continue    # now that opt/OPTARG are set we can process them as if
@@ -190,7 +190,7 @@ while getopts ":hrt:w-:" opt; do
       h|help)
         echo "The -h/--help flag was used"
         show_help
-        exit $EX_OK
+        exit $E_OK
         ;;
       r|read)
         echo "The -r/--read flag was used"
@@ -210,12 +210,12 @@ while getopts ":hrt:w-:" opt; do
       ?)
         echo "Syntax error: Unknown short option -${OPTARG:-}" >&2
         #exit 2
-        exit $EX_USAGE
+        exit $E_USAGE
         ;;
       *)
         echo "Syntax error: Unknown long option --${opt[0]}" >&2
         #exit 2
-        exit $EX_USAGE
+        exit $E_USAGE
         ;;
     esac
   break; done
@@ -226,7 +226,7 @@ done
 #----------------------------------------------------------------------
 if [[ ! ${r_flag:-} && ! ${w_flag:-} ]]; then
   echo "Please choose one of the 2 options: -r/--read or -w/--write)."
-  exit $EX_USAGE
+  exit $E_USAGE
 fi
 
 #----------------------------------------------------------------------
@@ -235,7 +235,7 @@ fi
 if [[ ${r_flag:-} && ${w_flag:-} ]]; then
   echo "The -r/--read and -w/--write flags are mutually exclusive" >&2
   echo "You can either run the script in read mode or in write mode." >&2
-  exit $EX_USAGE
+  exit $E_USAGE
 fi
 
 #----------------------------------------------------------------------
@@ -256,7 +256,7 @@ if [[ "${!OPTIND-}" ]]; then    # check if there are any non-option arguments
   # Abort the benchmark if the file exists
   if [[ -e $temporary_file ]]; then
     echo "The file $temporary_file exists, please provide another file path."
-    exit $EX_USAGE
+    exit $E_USAGE
   fi
 
   if [[ "${2:-}" ]]; then
@@ -266,7 +266,7 @@ if [[ "${!OPTIND-}" ]]; then    # check if there are any non-option arguments
     case "$temporary_file_size" in
       (*[!0-9]*|'')
         echo "Please specify a file size that is a natural number/positive integer."
-        exit $EX_USAGE
+        exit $E_USAGE
       ;;
       (*)
         echo "The file will be $temporary_file_size bytes large."
@@ -279,7 +279,7 @@ if [[ "${!OPTIND-}" ]]; then    # check if there are any non-option arguments
   fi
 else
   echo "Please provide a directory path."
-  exit $EX_USAGE
+  exit $E_USAGE
 fi
 
 #----------------------------------------------------------------------

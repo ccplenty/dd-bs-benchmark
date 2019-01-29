@@ -110,21 +110,27 @@ validate_directory () {
   dir_path="$1"
   local min_free_space
   min_free_space="$2"
-  if [[ -d "$dir_path" ]]; then
-    if [[ -w "$dir_path" ]]; then
-      if [[ $(df --output=avail -B 1 "$dir_path" | tail -n 1) -gt "$min_free_space" ]]; then
-        echo "The directory $dir_path is valid"
+  if [[ -e "$dir_path" ]]; then
+    if [[ -d "$dir_path" ]]; then
+      if [[ -w "$dir_path" ]]; then
+        if [[ $(df --output=avail -B 1 "$dir_path" | tail -n 1) -gt "$min_free_space" ]]; then
+          echo "The directory $dir_path is valid"
+        else
+          echo "There is not sufficient free space on the file sistem containing"
+          echo "the directory $dir_path. Please free up some disk space."
+          exit $E_CANTCREAT
+       fi
       else
-        echo "There is not sufficient free space on the file sistem containing"
-        echo "the directory $dir_path. Please free up some disk space."
+        echo "The directory $dir_path is not writable."
         exit $E_CANTCREAT
-     fi
+      fi
     else
-      echo "The directory $dir_path is not writable."
-      exit $E_CANTCREAT
+      echo "The path $dir_path is not of a directory, please provide a valid one."
+      exit $E_NOINPUT
     fi
   else
-    echo "The path $dir_path is not of a directory, please provide a valid one."
+    echo "$dir_path is missing or you misspelled the path."
+    echo "Please check again."
     exit $E_NOINPUT
   fi
 }

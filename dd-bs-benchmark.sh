@@ -259,9 +259,10 @@ if [[ "${!OPTIND-}" ]]; then    # check if there are any non-option arguments
   path="${1}"
   temporary_file="$path/dd-bs-benchmark.tmp"
 
-  # Abort the benchmark if the file exists
+  # Abort the benchmark if the temporary file exists
   if [[ -e $temporary_file ]]; then
-    echo "The file $temporary_file exists, please provide another file path."
+    echo "The folder $path already contains a file called dd-bs-benchmark.tmp,"
+    echo "please remove it or provide another folder."
     exit $E_USAGE
   fi
 
@@ -292,10 +293,8 @@ fi
 #  Check if the directories are valid
 #----------------------------------------------------------------------
 validate_directory "$path" "$temporary_file_size"
-if [[ ${w_flag:-} ]]; then
-  if [[ ${t_flag:-} ]]; then
-    validate_directory "$temp_dir" "$temporary_file_size"
-  fi
+if [[ ${w_flag:-} && ${t_flag:-} ]]; then
+  validate_directory "$temp_dir" "$temporary_file_size"
 fi
 
 #----------------------------------------------------------------------
@@ -377,20 +376,16 @@ fi
     rm "$temporary_file"
   fi
 
-    if [[ ${w_flag:-} ]]; then
-      if [[ ${t_flag:-} ]]; then
-      # Remove the temporary-temporary file
-      rm "$temp_dir/dd-bs-benchmark.tmp"
-    fi
+  if [[ ${w_flag:-} && ${t_flag:-} ]]; then
+    # Remove the temporary-temporary file
+    rm "$temp_dir/dd-bs-benchmark.tmp"
   fi
 
 } || {    # if any command above fails, a fallback code block is ran
 
-  if [[ ${w_flag:-} ]]; then
-    if [[ ${t_flag:-} ]]; then
-      # Remove the temporary-temporary file
-      rm "$temp_dir/dd-bs-benchmark.tmp"
-    fi
+  if [[ ${w_flag:-} && ${t_flag:-} ]]; then
+    # Remove the temporary-temporary file
+    rm "$temp_dir/dd-bs-benchmark.tmp"
   fi
 
   # Remove the temporary file

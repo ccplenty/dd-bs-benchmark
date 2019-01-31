@@ -116,7 +116,7 @@ validate_directory () {
         if [[ $(df --output=avail -B 1 "$dir_path" | tail -n 1) -gt "$min_free_space" ]]; then
           echo "The directory $dir_path is valid"
         else
-          echo "There is not sufficient free space on the file sistem containing"
+          echo "There is not sufficient free space on the file system containing"
           echo "the directory $dir_path. Please free up some disk space."
           exit $E_CANTCREAT
        fi
@@ -133,6 +133,25 @@ validate_directory () {
     echo "Please check again."
     exit $E_NOINPUT
   fi
+}
+
+#===  FUNCTION  ================================================================
+#         NAME:  validate_size
+#  DESCRIPTION:  Check if a number is a natural number/positive integer
+# PARAMETER  1:  A number
+#===============================================================================
+validate_size () {
+  local number
+  number="$1"
+  case "$number" in
+    (*[!0-9]*|'')
+      echo "Please specify a file size that is a natural number/positive integer."
+      exit $E_USAGE
+    ;;
+    (*)
+      echo "The file will be $number bytes large."
+    ;;
+  esac
 }
 
 #----------------------------------------------------------------------
@@ -269,16 +288,7 @@ if [[ "${!OPTIND-}" ]]; then    # check if there are any non-option arguments
   if [[ "${2:-}" ]]; then
     echo "The file size was specified: ${2}"
     temporary_file_size="${2}"
-    # Check if the provided number is valid
-    case "$temporary_file_size" in
-      (*[!0-9]*|'')
-        echo "Please specify a file size that is a natural number/positive integer."
-        exit $E_USAGE
-      ;;
-      (*)
-        echo "The file will be $temporary_file_size bytes large."
-      ;;
-    esac
+    validate_size "$temporary_file_size"    # validate the provided number
   else
     echo "The file size was not specified."
     echo "The default file size of 256 MiB will be used."
@@ -333,7 +343,7 @@ fi
   for bs in $block_sizes; do
 
     # Clear the kernel cache to obtain more accurate results
-    sync && [[ $EUID -eq 0 ]] && [[ -e /proc/sys/vm/drop_caches ]] && sysctl vm.drop_caches=3
+    sync && [[ $EUID -eq 0 ]] && [[ -e /proc/sys/vm/drop_caches ]] && sysctl --quiet vm.drop_caches=3
 
     if [[ ${r_flag:-} ]]; then
       # Read the temporary file using the $bs block size and send the data to /dev/null

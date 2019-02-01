@@ -48,13 +48,20 @@ show_help () {
 cat << EOF
 
 Benchmark the device where DIRECTORY resides on using dd.
-
 Usage: ${0##*/} -h | --help
 Usage: ${0##*/} {{-r | --read} | {-w | --write}}
                 [{-t{""|" "}DIRECTORY} | {--temp{" "|"="}DIRECTORY}]
                 DIRECTORY [NUMBER]
 
+Benchmark the block device pointed to by BLOCK_DEVICE using dd.
+Usage: ${0##*/} {{-r | --read} | {-w | --write}}
+                [{-t{""|" "}DIRECTORY} | {--temp{" "|"="}DIRECTORY}]
+                [-b | --block-device] BLOCK_DEVICE [NUMBER]
+
 Options:
+    -b, --block-device              benchmark a raw device, regardless of any
+                                    file systems present on it. Warning: it
+                                    causes data corruption
     -h, --help                      display this help and exit
     -r, --read                      run the script in read mode
     -t{""|" "}, --temp{" "|"="}DIRECTORY    specify a directory where to place a
@@ -62,8 +69,10 @@ Options:
                                     data. Only useful with the -w/--write flag
     -w, --write                     run the script in write mode
     DIRECTORY                       a path to a directory
-    NUMBER                          the number of bytes for the temporary file
-                                    that is to be created. Default: 268435456
+    BLOCK_DEVICE                    a path to a block device
+    NUMBER                          the size of the data in bytes to be read or
+                                    written to the file that is to be created or
+                                    to the block device. Default: 268435456
 
 Examples:
 ${0##*/} --help
@@ -95,7 +104,12 @@ ${0##*/} -t /dev/shm -w /media/user/External_storage 134217728
     a file with pseudo-random data in /dev/shm, which is a temporary directory
     stored in the RAM (hence, very fast) on Linux systems then copy it multiple
     times with different block sizes to /media/user/External_storage.
-
+${0##*/} -b -t /dev/shm -w /dev/sdd 134217728
+    The command above does what the previous one did but the -b flag tells the
+    script to expect for a path to a block device instead of a directory.
+    It will then write to it, starting with the first sector which means that it
+    will overwrite the partition table and many more other sectors to a total of
+    134217728 sectors.
 EOF
 } >&2    # create a function to show an usage message and redirect it to STDERR
 
@@ -212,6 +226,15 @@ while getopts ":hrt:w-:" opt; do
         continue    # now that opt/OPTARG are set we can process them as if
                     #+ getopts would've given us long options
         ;;
+      b|block-device)
+        echo "The -b/--block-device flag was used"
+        b_flag=1
+        if [[ $EUID -ne 0 ]]; then
+          echo "To use block devices 'dd' needs root privileges." >&2
+          echo "Please run this script as root." >&2
+          exit $E_NOINPUT
+        fi
+        ;;
       h|help)
         echo "The -h/--help flag was used"
         show_help
@@ -266,58 +289,145 @@ fi
 #----------------------------------------------------------------------
 #  Extract the directory path and the file size
 #----------------------------------------------------------------------
-#echo "First non-option-argument (if exists): ${!OPTIND-}"
-if [[ "${!OPTIND-}" ]]; then    # check if there are any non-option arguments
-  shift "$((OPTIND-1))"    # remove all the options that were parsed by getopts
-#  echo "\"\$#\":$#"    # show the number of arguments
-#  echo "\"\$0\":$0"    # show the script path
-#  echo "\"\$1\":$1"    # show the first argument
-#  echo "\"\$2\":$2"    # show the second argument
-#  echo "\"\$3\":$3"    # show the third argument
-  echo "The directory path was specified: ${1}"
-  path="${1}"
-  temporary_file="$path/dd-bs-benchmark.tmp"
+if [[ ! ${b_flag:-} ]]; then
+  #echo "First non-option-argument (if exists): ${!OPTIND-}"
+  if [[ "${!OPTIND-}" ]]; then    # check if there are any non-option arguments
+    shift "$((OPTIND-1))"    # remove all the options that were parsed by getopts
+#    echo "\"\$#\":$#"    # show the number of arguments
+#    echo "\"\$0\":$0"    # show the script path
+#    echo "\"\$1\":$1"    # show the first argument
+#    echo "\"\$2\":$2"    # show the second argument
+#    echo "\"\$3\":$3"    # show the third argument
+    echo "The directory path was specified: ${1}"
+    path="${1}"
+    temporary_file="$path/dd-bs-benchmark.tmp"
 
-  # Abort the benchmark if the temporary file exists
-  if [[ -e $temporary_file ]]; then
-    echo "The folder $path already contains a file called dd-bs-benchmark.tmp,"
-    echo "please remove it or provide another folder."
+    # Abort the benchmark if the temporary file exists
+    if [[ -e $temporary_file ]]; then
+      echo "The folder $path already contains a file called dd-bs-benchmark.tmp,"
+      echo "please remove it or provide another folder."
+      exit $E_USAGE
+    fi
+
+    if [[ "${2:-}" ]]; then
+      echo "The file size was specified: ${2}"
+      temporary_file_size="${2}"
+      validate_size "$temporary_file_size"    # validate the provided number
+    else
+      echo "The file size was not specified."
+      echo "The default file size of 256 MiB will be used."
+      temporary_file_size=268435456
+    fi
+  else
+    echo "Please provide a directory path."
     exit $E_USAGE
   fi
+fi
 
-  if [[ "${2:-}" ]]; then
-    echo "The file size was specified: ${2}"
-    temporary_file_size="${2}"
-    validate_size "$temporary_file_size"    # validate the provided number
+  #---------------------------------------------------------------------------
+  #  Extract the block device's path and the size of the data to be benchmaked
+  #---------------------------------------------------------------------------
+if [[ ${b_flag:-} ]]; then
+  if [[ "${!OPTIND-}" ]]; then    # check if there are any non-option arguments
+    shift "$((OPTIND-1))"    # remove all the options that were parsed by getopts
+    echo "A block device was specified: ${1}"
+    block_device="${1}"
+
+    if [[ "${2:-}" ]]; then
+      echo "The size was specified: ${2}"
+      benchmark_data_size="${2}"
+      validate_size "$benchmark_data_size"    # validate the provided number
+    else
+      echo "The data size was not specified."
+      echo "The default size of 256 MiB will be used."
+      benchmark_data_size=268435456
+    fi
   else
-    echo "The file size was not specified."
-    echo "The default file size of 256 MiB will be used."
-    temporary_file_size=268435456
+    echo "Please provide a directory path."
+    exit $E_USAGE
   fi
-else
-  echo "Please provide a directory path."
-  exit $E_USAGE
 fi
 
 #----------------------------------------------------------------------
 #  Check if the directories are valid
 #----------------------------------------------------------------------
-validate_directory "$path" "$temporary_file_size"
+if [[ ! ${b_flag:-} ]]; then
+  validate_directory "$path" "$temporary_file_size"
+fi
 if [[ ${w_flag:-} && ${t_flag:-} ]]; then
-  validate_directory "$temp_dir" "$temporary_file_size"
+  validate_directory "$temp_dir" "${temporary_file_size:-$benchmark_data_size}"
 fi
 
 #----------------------------------------------------------------------
-#  Use a code block where to create the file
+#  Check if the block device path is valid, if applicable
+#----------------------------------------------------------------------
+if [[ ${b_flag:-} ]]; then
+  if [ -e "$block_device" ]; then
+    #echo "Test file $block_device exists, using it."
+    if [ -b "$block_device" ]; then
+      if [[ $(sudo blockdev --getsize64 "$block_device") -gt "$benchmark_data_size" ]]; then
+        echo "The block device $block_device is valid"
+
+        read -r -p "The file you have provided is a block device. Do you want to test it? " choice1
+        case "$choice1" in
+        y|Y|[yY][eE][sS] )
+          echo "The test will cause data corruption! Back up your data before going any further."
+          read -r -p "Continue? " choice2
+          case "$choice2" in
+          y|Y|[yY][eE][sS] )
+            echo "You answered \"Yes\". Continuing..."
+            ;;
+          n|N|[nN][oO] )
+            echo "You answered \"No\". Aborting..."
+            exit 1
+            ;;
+          * )
+            echo "Invalid answer. Aborting..."
+            exit 1
+            ;;
+          esac
+          ;;
+        n|N|[nN][oO] )
+          echo "You answered \"No\". Aborting..."
+          exit 1
+          ;;
+        * )
+          echo "Invalid answer. Aborting..."
+          exit 1
+          ;;
+        esac
+
+      else
+        echo "The block device $block_device is not large enough to test with"
+        echo "$benchmark_data_size bytes. Please use a smaller size."
+        exit $E_CANTCREAT
+      fi
+    else
+      echo "The file $block_device is not actually a block device."
+      exit $E_USAGE
+    fi
+  else
+    echo "$block_device is missing or you misspelled the path."
+    echo "Please check again."
+    exit $E_NOINPUT
+  fi
+fi
+
+#----------------------------------------------------------------------
+#  Use a code block where to run any operations that can corrupt data
 #----------------------------------------------------------------------
 {
 
   if [[ ${r_flag:-} ]]; then
     # Generate a temporary file with random data
-    echo "Please wait while the file $temporary_file is being written."
+    if [[ ! ${b_flag:-} ]]; then
+      echo "Please wait while the file $temporary_file is being written."
+    else
+      echo "Please wait while the data is written to the block device."
+    fi
     bs=65536
-    count=$((temporary_file_size / bs))
-    dd bs=$bs conv=fsync count=$count if=/dev/urandom of="$temporary_file" &> /dev/null
+    count=$((${temporary_file_size:-$benchmark_data_size} / bs))
+    dd bs=$bs conv=fsync count=$count if=/dev/urandom of="${temporary_file:-$block_device}" &> /dev/null
 
     # Print a header for the list with the read speeds
     # shellcheck disable=SC2059
@@ -328,7 +438,7 @@ fi
     if [[ ${t_flag:-} ]]; then
       # Generate a temporary file with random data in the temporary directory
       bs=65536
-      count=$((temporary_file_size / bs))
+      count=$((${temporary_file_size:-$benchmark_data_size} / bs))
       dd bs=$bs conv=fsync count=$count if=/dev/urandom of="$temp_dir/dd-bs-benchmark.tmp" &> /dev/null
     fi
 
@@ -347,7 +457,12 @@ fi
 
     if [[ ${r_flag:-} ]]; then
       # Read the temporary file using the $bs block size and send the data to /dev/null
-      dd_output=$(dd bs="$bs" if="$temporary_file" of=/dev/null 2>&1 1>/dev/null)
+    if [[ ${b_flag:-} ]]; then
+        count=$((${temporary_file_size:-$benchmark_data_size} / bs))
+        dd_output=$(dd bs="$bs" count=$count if="${temporary_file:-$block_device}" of=/dev/null 2>&1 1>/dev/null)
+    else
+      dd_output=$(dd bs="$bs" if="${temporary_file:-$block_device}" of=/dev/null 2>&1 1>/dev/null)
+    fi
 
       # Determine the read speed from dd's output and place it in a variable
       read_speed=$(grep --only-matching --extended-regexp --ignore-case '[0-9.]+ ([GMk]?B|bytes)/s(ec)?' <<< "$dd_output")
@@ -360,12 +475,12 @@ fi
     if [[ ${w_flag:-} ]]; then
       if [[ ${t_flag:-} ]]; then
         # Copy the temporary file from the temporary directory
-        dd_output=$(dd bs="$bs" conv=fsync if="$temp_dir/dd-bs-benchmark.tmp" of="$temporary_file" 2>&1 1>/dev/null)
+        dd_output=$(dd bs="$bs" conv=fsync if="$temp_dir/dd-bs-benchmark.tmp" of="${temporary_file:-$block_device}" 2>&1 1>/dev/null)
       else
         # Calculate the number of blocks needed to create the file
-        count=$((temporary_file_size / bs))
+        count=$((${temporary_file_size:-$benchmark_data_size} / bs))
         # Create a temporary file using the $bs block size
-        dd_output=$(dd bs="$bs" conv=fsync count=$count if=/dev/zero of="$temporary_file" 2>&1 1>/dev/null)
+        dd_output=$(dd bs="$bs" conv=fsync count=$count if=/dev/zero of="${temporary_file:-$block_device}" 2>&1 1>/dev/null)
       fi
 
       # Determine the write speed from dd's output and place it in a variable
@@ -375,13 +490,15 @@ fi
       # shellcheck disable=SC2059
       printf "$printf_format" "$bs" "$write_speed"
 
-      # Remove the temporary file
-      rm "$temporary_file"
+      if [[ ! ${b_flag:-} ]]; then
+        # Remove the temporary file
+        rm "$temporary_file"
+      fi
 
     fi
   done
 
-  if [[ ${r_flag:-} ]]; then
+  if [[ ${r_flag:-} && ! ${b_flag:-} ]]; then
     # Remove the temporary file
     rm "$temporary_file"
   fi
@@ -398,7 +515,9 @@ fi
     rm "$temp_dir/dd-bs-benchmark.tmp"
   fi
 
-  # Remove the temporary file
-  rm "$temporary_file"
+  if [[ ! ${b_flag:-} ]]; then
+    # Remove the temporary file
+    rm "$temporary_file"
+  fi
 
 }

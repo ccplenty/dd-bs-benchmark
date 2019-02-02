@@ -178,7 +178,7 @@ declare -A longoptspec
 # In this case we declare that all the options expect/have one argument. Long
 #+ options that aren't listed in this way will have zero arguments by default.
 longoptspec=( [temp]=1 )    # WARNING: bashism
-while getopts ":hrt:w-:" opt; do
+while getopts ":bhrt:w-:" opt; do
   while true; do
     case "${opt}" in
       -)    #OPTARG is name-of-long-option or name-of-long-option=value

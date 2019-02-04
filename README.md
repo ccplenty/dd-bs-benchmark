@@ -36,8 +36,5 @@ By default, with the -w/--write flag, the script will create a file filled with 
 ```
 The command above does what the previous one did but the -b flag tells the script to expect for a path to a block device instead of a directory. It will then write to it, starting with the first sector which means that it will overwrite the partition table and many more other sectors to a total of 134217728 sectors.
 
-## WARNING!
-The old scripts, `dd-ibs-benchmark.sh` and `dd-obs-benchmark.sh` are deprecated and have been superseded by `dd-bs-benchmark.sh`. The last commit containing the two scripts is 320e079ae7968085e7808819e5376f72638e43a3 and the tag v0.1.1.
-
 ## License
 This software is licensed under the MIT License (MIT Expat License). The full text can be found in the file LICENSE.

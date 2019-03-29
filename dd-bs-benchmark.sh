@@ -26,12 +26,6 @@ E_NOINPUT=66      # An input file (not a system file) did not exist or was
 E_CANTCREAT=73    # A (user specified) output file cannot be created.
 
 #----------------------------------------------------------------------
-#  Create some variables
-#----------------------------------------------------------------------
-# Benchmark with block sizes from 512 bytes to 64 MiB
-block_sizes="512 1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152 4194304 8388608 16777216 33554432 67108864"
-
-#----------------------------------------------------------------------
 #  Check if the script is run as root
 #----------------------------------------------------------------------
 if [[ $EUID -ne 0 ]]; then
@@ -448,9 +442,9 @@ fi
   fi
 
   #--------------------------------------------------------------------
-  #  Run benchmarks for each block size
+  #  Run benchmarks for multiple block sizes
   #--------------------------------------------------------------------
-  for bs in $block_sizes; do
+  for (( bs=512; bs<=67108864; bs*=2)); do    # benchmark with block sizes from 512 bytes to 64 MiB
 
     # Clear the kernel cache to obtain more accurate results
     sync && [[ $EUID -eq 0 ]] && [[ -e /proc/sys/vm/drop_caches ]] && sysctl --quiet vm.drop_caches=3

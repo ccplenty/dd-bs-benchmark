@@ -44,11 +44,15 @@ cat << EOF
 Benchmark the device where DIRECTORY resides on using dd.
 Usage: ${0##*/} -h | --help
 Usage: ${0##*/} {{-r | --read} | {-w | --write}}
+                [{-m{""|" "}NUMBER} | {--min-block-size{" "|"="}NUMBER}]
+                [{-M{""|" "}NUMBER} | {--max-block-size{" "|"="}NUMBER}]
                 [{-t{""|" "}DIRECTORY} | {--temp{" "|"="}DIRECTORY}]
                 DIRECTORY [NUMBER]
 
 Benchmark the block device pointed to by BLOCK_DEVICE using dd.
 Usage: ${0##*/} {{-r | --read} | {-w | --write}}
+                [{-m{""|" "}NUMBER} | {--min-block-size{" "|"="}NUMBER}]
+                [{-M{""|" "}NUMBER} | {--max-block-size{" "|"="}NUMBER}]
                 [{-t{""|" "}DIRECTORY} | {--temp{" "|"="}DIRECTORY}]
                 [-b | --block-device] BLOCK_DEVICE [NUMBER]
 
@@ -57,6 +61,8 @@ Options:
                                     file systems present on it. Warning: it
                                     causes data corruption
     -h, --help                      display this help and exit
+    -m, --min-block-size            minimum block size to be tested. Default: 512
+    -M, --max-block-size            maximum block size to be tested. Default: 67108864
     -r, --read                      run the script in read mode
     -t{""|" "}, --temp{" "|"="}DIRECTORY    specify a directory where to place a
                                     temporary file generated with pseudo-random
@@ -77,11 +83,11 @@ ${0##*/} -r /media/user/External_storage 536870912
     it back repeatedly with "dd" using different block sizes and print the read
     speeds obtained. If no size were specified, the script would create a file
     of the default size which is 256 MiB.
-${0##*/} -w /media/user/External_storage
+${0##*/} -w -m 1024 -M 33554432 /media/user/External_storage
     The command above will create a zeroed-out file with "dd" using a block size
-    of 512 bytes in the directory /media/user/External_storage and print the
+    of 1024 bytes in the directory /media/user/External_storage and print the
     write speed obtained then delete the file. It would then create another file
-    using a block size of 1024 bytes, then one with 2 kiB and so on. Because
+    using a block size of 2048 bytes, and in the end, one with 32 MiB. Because
     no size was specified, the script will create files of the default size
     which is 256 MiB.
 ${0##*/} -t /dev/shm -w /media/user/External_storage 134217728
@@ -157,7 +163,7 @@ validate_size () {
       exit $E_USAGE
     ;;
     (*)
-      echo "The file will be $number bytes large."
+      echo "The number $number is valid."
     ;;
   esac
 }
@@ -171,8 +177,8 @@ declare -A longoptspec
 # Use associative array to declare how many arguments a long option expects.
 # In this case we declare that all the options expect/have one argument. Long
 #+ options that aren't listed in this way will have zero arguments by default.
-longoptspec=( [temp]=1 )    # WARNING: bashism
-while getopts ":bhrt:w-:" opt; do
+longoptspec=( [min-block-size]=1 [max-block-size]=1 [temp]=1 )    # WARNING: bashism
+while getopts ":bhm:M:rt:w-:" opt; do
   while true; do
     case "${opt}" in
       -)    #OPTARG is name-of-long-option or name-of-long-option=value
@@ -233,6 +239,16 @@ while getopts ":bhrt:w-:" opt; do
         echo "The -h/--help flag was used"
         show_help
         exit $E_OK
+        ;;
+      m|min-block-size)
+        echo "The -m/--min-block-size flag was used"
+        validate_size "$OPTARG" && min_block_size="$OPTARG"
+        echo "The minimum block size of $min_block_size bytes will be used."
+        ;;
+      M|max-block-size)
+        echo "The -M/--max-block-size flag was used"
+        validate_size "$OPTARG" && max_block_size="$OPTARG"
+        echo "The maximum block size of $max_block_size bytes will be used."
         ;;
       r|read)
         echo "The -r/--read flag was used"
@@ -307,6 +323,7 @@ if [[ ! ${b_flag:-} ]]; then
       echo "The file size was specified: ${2}"
       temporary_file_size="${2}"
       validate_size "$temporary_file_size"    # validate the provided number
+      echo "The file will be $temporary_file_size bytes large."
     else
       echo "The file size was not specified."
       echo "The default file size of 256 MiB will be used."
@@ -331,6 +348,7 @@ if [[ ${b_flag:-} ]]; then
       echo "The size was specified: ${2}"
       benchmark_data_size="${2}"
       validate_size "$benchmark_data_size"    # validate the provided number
+      echo "The benchmaked data will be $benchmark_data_size bytes large."
     else
       echo "The data size was not specified."
       echo "The default size of 256 MiB will be used."
@@ -340,6 +358,18 @@ if [[ ${b_flag:-} ]]; then
     echo "Please provide a directory path."
     exit $E_USAGE
   fi
+fi
+
+#----------------------------------------------------------------------
+#  Extract the minimum and maximum block sizes to be used
+#----------------------------------------------------------------------
+if [[ ! ${min_block_size:-} ]]; then    # if the -m flag was not used...
+  min_block_size=512    # set a default minimum block size
+  echo "The default minimum block size of 512 bytes will be used."
+fi
+if [[ ! ${max_block_size:-} ]]; then    # if the -M flag was not used...
+  max_block_size=67108864    # set a default maximum block size of 64 MiB
+  echo "The default maximum block size of 67108864 bytes (64 MiB) will be used."
 fi
 
 #----------------------------------------------------------------------
@@ -444,7 +474,7 @@ fi
   #--------------------------------------------------------------------
   #  Run benchmarks for multiple block sizes
   #--------------------------------------------------------------------
-  for (( bs=512; bs<=67108864; bs*=2)); do    # benchmark with block sizes from 512 bytes to 64 MiB
+  for (( bs="$min_block_size"; bs<="$max_block_size"; bs*=2)); do    # benchmark with multiple block sizes
 
     # Clear the kernel cache to obtain more accurate results
     sync && [[ $EUID -eq 0 ]] && [[ -e /proc/sys/vm/drop_caches ]] && sysctl --quiet vm.drop_caches=3

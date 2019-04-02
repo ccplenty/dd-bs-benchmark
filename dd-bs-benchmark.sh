@@ -61,8 +61,10 @@ Options:
                                     file systems present on it. Warning: it
                                     causes data corruption
     -h, --help                      display this help and exit
-    -m, --min-block-size            minimum block size to be tested. Default: 512
-    -M, --max-block-size            maximum block size to be tested. Default: 67108864
+    -m{""|" "}, --min-block-size{" "|"="}NUMBER     minimum block size to be
+                                                    tested. Default: 512
+    -M{""|" "}, --max-block-size{" "|"="}NUMBER     maximum block size to be
+                                                    tested. Default: 67108864
     -r, --read                      run the script in read mode
     -t{""|" "}, --temp{" "|"="}DIRECTORY    specify a directory where to place a
                                     temporary file generated with pseudo-random

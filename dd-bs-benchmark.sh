@@ -61,12 +61,10 @@ Options:
                                     file systems present on it. Warning: it
                                     causes data corruption
     -h, --help                      display this help and exit
-    -m{""|" "}, --min-block-size{" "|"="}NUMBER     minimum block size to be
-                                                    tested. Default: 512
-    -M{""|" "}, --max-block-size{" "|"="}NUMBER     maximum block size to be
-                                                    tested. Default: 67108864
+    -m, --min-block-size NUMBER     minimum block size to be tested. Default: 512
+    -M, --max-block-size NUMBER     maximum block size to be tested. Default: 67108864
     -r, --read                      run the script in read mode
-    -t{""|" "}, --temp{" "|"="}DIRECTORY    specify a directory where to place a
+    -t, --temp DIRECTORY            specify a directory where to place a
                                     temporary file generated with pseudo-random
                                     data. Only useful with the -w/--write flag
     -w, --write                     run the script in write mode
@@ -75,6 +73,9 @@ Options:
     NUMBER                          the size of the data in bytes to be read or
                                     written to the file that is to be created or
                                     to the block device. Default: 268435456
+
+NOTE: Short options can have one space (" ") or no space before their arguments
+      and long options can have one space (" ") or the equal sign ("=").
 
 Examples:
 ${0##*/} --help

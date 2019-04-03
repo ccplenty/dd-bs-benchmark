@@ -153,15 +153,16 @@ validate_directory () {
 }
 
 #===  FUNCTION  ================================================================
-#         NAME:  validate_size
+#         NAME:  validate_number
 #  DESCRIPTION:  Check if a number is a natural number/positive integer
 # PARAMETER  1:  A number
 #===============================================================================
-validate_size () {
+validate_number () {
   local number
   number="$1"
   case "$number" in
     (*[!0-9]*|'')
+      echo "The number $number is not valid."
       echo "Please specify a file size that is a natural number/positive integer."
       exit $E_USAGE
     ;;
@@ -245,12 +246,12 @@ while getopts ":bhm:M:rt:w-:" opt; do
         ;;
       m|min-block-size)
         echo "The -m/--min-block-size flag was used"
-        validate_size "$OPTARG" && min_block_size="$OPTARG"
+        validate_number "$OPTARG" && min_block_size="$OPTARG"
         echo "The minimum block size of $min_block_size bytes will be used."
         ;;
       M|max-block-size)
         echo "The -M/--max-block-size flag was used"
-        validate_size "$OPTARG" && max_block_size="$OPTARG"
+        validate_number "$OPTARG" && max_block_size="$OPTARG"
         echo "The maximum block size of $max_block_size bytes will be used."
         ;;
       r|read)
@@ -325,7 +326,7 @@ if [[ ! ${b_flag:-} ]]; then
     if [[ "${2:-}" ]]; then
       echo "The file size was specified: ${2}"
       temporary_file_size="${2}"
-      validate_size "$temporary_file_size"    # validate the provided number
+      validate_number "$temporary_file_size"    # validate the provided number
       echo "The file will be $temporary_file_size bytes large."
     else
       echo "The file size was not specified."
@@ -350,7 +351,7 @@ if [[ ${b_flag:-} ]]; then
     if [[ "${2:-}" ]]; then
       echo "The size was specified: ${2}"
       benchmark_data_size="${2}"
-      validate_size "$benchmark_data_size"    # validate the provided number
+      validate_number "$benchmark_data_size"    # validate the provided number
       echo "The benchmaked data will be $benchmark_data_size bytes large."
     else
       echo "The data size was not specified."

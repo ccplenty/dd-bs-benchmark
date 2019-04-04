@@ -47,6 +47,7 @@ Usage: ${0##*/} {{-r | --read} | {-w | --write}}
                 [{-m{""|" "}NUMBER} | {--min-block-size{" "|"="}NUMBER}]
                 [{-M{""|" "}NUMBER} | {--max-block-size{" "|"="}NUMBER}]
                 [{-t{""|" "}DIRECTORY} | {--temp{" "|"="}DIRECTORY}]
+                [{-x{""|" "}NUMBER} | {--block-size-multiplier{" "|"="}NUMBER}]
                 DIRECTORY [NUMBER]
 
 Benchmark the block device pointed to by BLOCK_DEVICE using dd.
@@ -54,6 +55,7 @@ Usage: ${0##*/} {{-r | --read} | {-w | --write}}
                 [{-m{""|" "}NUMBER} | {--min-block-size{" "|"="}NUMBER}]
                 [{-M{""|" "}NUMBER} | {--max-block-size{" "|"="}NUMBER}]
                 [{-t{""|" "}DIRECTORY} | {--temp{" "|"="}DIRECTORY}]
+                [{-x{""|" "}NUMBER} | {--block-size-multiplier{" "|"="}NUMBER}]
                 [-b | --block-device] BLOCK_DEVICE [NUMBER]
 
 Options:
@@ -68,6 +70,8 @@ Options:
                                     temporary file generated with pseudo-random
                                     data. Only useful with the -w/--write flag
     -w, --write                     run the script in write mode
+    -x, --block-size-multiplier NUMBER    a number by which the block sizes will be
+                                    multiplied before each benchmark. Default: 2
     DIRECTORY                       a path to a directory
     BLOCK_DEVICE                    a path to a block device
     NUMBER                          the size of the data in bytes to be read or
@@ -86,11 +90,13 @@ ${0##*/} -r /media/user/External_storage 536870912
     it back repeatedly with "dd" using different block sizes and print the read
     speeds obtained. If no size were specified, the script would create a file
     of the default size which is 256 MiB.
-${0##*/} -w -m 1024 -M 33554432 /media/user/External_storage
+${0##*/} -w -m 1024 -M 33554432 -x4 /media/user/External_storage
     The command above will create a zeroed-out file with "dd" using a block size
     of 1024 bytes in the directory /media/user/External_storage and print the
     write speed obtained then delete the file. It would then create another file
-    using a block size of 2048 bytes, and in the end, one with 32 MiB. Because
+    using a block size of 4096 (1024*4) bytes, then 16384 (1024*4*4) and in the
+    end, one with 16 MiB, not 32 MiB because multiplying 1024 with 4 an arbitrary
+    number of times will result 16777216 (16 MiB) then 67108864 (64 MiB).Because
     no size was specified, the script will create files of the default size
     which is 256 MiB.
 ${0##*/} -t /dev/shm -w /media/user/External_storage 134217728
@@ -181,8 +187,8 @@ declare -A longoptspec
 # Use associative array to declare how many arguments a long option expects.
 # In this case we declare that all the options expect/have one argument. Long
 #+ options that aren't listed in this way will have zero arguments by default.
-longoptspec=( [min-block-size]=1 [max-block-size]=1 [temp]=1 )    # WARNING: bashism
-while getopts ":bhm:M:rt:w-:" opt; do
+longoptspec=( [min-block-size]=1 [max-block-size]=1 [temp]=1 [block-size-multiplier]=1 )    # WARNING: bashism
+while getopts ":bhm:M:rt:wx:-:" opt; do
   while true; do
     case "${opt}" in
       -)    #OPTARG is name-of-long-option or name-of-long-option=value
@@ -268,6 +274,11 @@ while getopts ":bhm:M:rt:w-:" opt; do
         echo "The -w/--write flag was used"
         w_flag=1
         printf_format="%10s - %11s\n"
+      ;;
+      x|block-size-multiplier)
+        echo "The -x/--block-size-multiplier flag was used"
+        validate_number "$OPTARG" && block_size_multiplier="$OPTARG"
+        echo "A block size multiplier of $block_size_multiplier will be used."
       ;;
       ?)
         echo "Syntax error: Unknown short option -${OPTARG:-}" >&2
@@ -365,7 +376,8 @@ if [[ ${b_flag:-} ]]; then
 fi
 
 #----------------------------------------------------------------------
-#  Extract the minimum and maximum block sizes to be used
+#  Extract the minimum and maximum block sizes
+#  and the block size multiplier
 #----------------------------------------------------------------------
 if [[ ! ${min_block_size:-} ]]; then    # if the -m flag was not used...
   min_block_size=512    # set a default minimum block size
@@ -374,6 +386,10 @@ fi
 if [[ ! ${max_block_size:-} ]]; then    # if the -M flag was not used...
   max_block_size=67108864    # set a default maximum block size of 64 MiB
   echo "The default maximum block size of 67108864 bytes (64 MiB) will be used."
+fi
+if [[ ! ${block_size_multiplier:-} ]]; then    # if the -x flag was not used...
+  block_size_multiplier=2    # set a default multiplier of 2
+  echo "The default block size multiplier of 2 will be used."
 fi
 
 #----------------------------------------------------------------------
@@ -478,7 +494,7 @@ fi
   #--------------------------------------------------------------------
   #  Run benchmarks for multiple block sizes
   #--------------------------------------------------------------------
-  for (( bs="$min_block_size"; bs<="$max_block_size"; bs*=2)); do    # benchmark with multiple block sizes
+  for (( bs="$min_block_size"; bs<="$max_block_size"; bs*="$block_size_multiplier")); do    # benchmark with multiple block sizes
 
     # Clear the kernel cache to obtain more accurate results
     sync && [[ $EUID -eq 0 ]] && [[ -e /proc/sys/vm/drop_caches ]] && sysctl --quiet vm.drop_caches=3
